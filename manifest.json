@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "get-cookie",
+    "version": "1.0.0",
+    "description": "Extension to get cookies",
+    "author": "jooies",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "permissions": [
+        "cookies",
+        "runtime"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "*://weibo.com/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "host_permissions": [
+        "https://*/*"
+    ]
+}
