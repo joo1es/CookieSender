@@ -13,7 +13,8 @@
     "content_scripts": [
         {
             "matches": [
-                "*://weibo.com/*"
+                "*://weibo.com/*",
+                "*://twitter.com/*"
             ],
             "js": [
                 "content.js"
