@@ -14,7 +14,10 @@
         {
             "matches": [
                 "*://weibo.com/*",
-                "*://twitter.com/*"
+                "*://x.com/*",
+                "*://twitter.com/*",
+                "*://*.xiaohongshu.com/*",
+                "*://xiaohongshu.com/*"
             ],
             "js": [
                 "content.js"
@@ -23,6 +26,6 @@
         }
     ],
     "host_permissions": [
-        "https://*/*"
+        "<all_urls>"
     ]
 }

