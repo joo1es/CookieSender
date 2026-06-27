@@ -1,26 +1,53 @@
 {
     "manifest_version": 3,
-    "name": "CookieSender",
+    "name": "虫洞",
     "version": "1.0.0",
-    "description": "Extension to get cookies",
+    "description": "连接浏览器与本地开发环境",
     "author": "jooies",
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    },
     "background": {
         "service_worker": "background.js"
     },
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "虫洞",
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        }
+    },
     "permissions": [
-        "cookies"
+        "cookies",
+        "alarms",
+        "webNavigation",
+        "scripting",
+        "activeTab",
+        "tabs"
     ],
     "content_scripts": [
         {
             "matches": [
                 "*://weibo.com/*",
-                "*://x.com/*",
-                "*://twitter.com/*",
-                "*://*.xiaohongshu.com/*",
-                "*://xiaohongshu.com/*"
+                "*://x.com/*"
             ],
             "js": [
                 "content.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://kan.tu/*",
+                "*://localhost/*",
+                "*://127.0.0.1/*"
+            ],
+            "js": [
+                "bridge.js"
             ],
             "run_at": "document_idle"
         }
