@@ -1,0 +1,546 @@
+/*
+ * site-status.css - 「是否已下载」角标样式
+ *
+ * 这份 CSS 由 manifest 的 content_scripts.css 注入（不是页面内 <style>），
+ * 所以不受目标站 CSP 限制 —— X 的 style-src 会拦掉一切内联样式，这也是角标
+ * 只能用 class 而不能写 style="" 的原因。
+ *
+ * 全部用 !important：站点的全局样式（尤其 X 的 reset）会命中 span，
+ * 不压住的话角标字号/行高会随卡片一起变。
+ */
+
+.wh-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    /* 字号跟随站点原文（X 的日期行是 15px），写死 11px 会明显比周围小一圈。
+       高度也改成由行高撑开，避免和继承来的字号打架。 */
+    font-size: inherit !important;
+    line-height: 1.35 !important;
+    height: auto !important;
+    min-height: 18px !important;
+    padding: 1px 8px !important;
+    margin: 0 0 0 6px !important;
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    font-family: inherit !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    text-indent: 0 !important;
+    text-transform: none !important;
+    cursor: default !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    flex: none !important;
+    max-width: 260px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* 卡片角标：绝对定位在封面左上角，要求宿主元素已定位（JS 只在 static 时才加 class）。
+   它压在封面图上、和正文无关，所以字号单独定小一号。 */
+.wh-badge-host {
+    position: relative !important;
+}
+
+.wh-badge--corner {
+    position: absolute !important;
+    top: 6px !important;
+    left: 6px !important;
+    margin: 0 !important;
+    z-index: 30 !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* ── 下载按钮（未下载时显示） ───────────────────────────── */
+
+/* 未下载 = 可点的下载按钮。底色透明、颜色跟随站点主色，
+   视觉上比「已收录」的实心药丸轻，不抢原站内容。 */
+.wh-badge--action {
+    gap: 3px !important;
+    padding: 0 6px 0 4px !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    cursor: pointer !important;
+    opacity: 0.72 !important;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease !important;
+}
+
+.wh-badge--action:hover {
+    opacity: 1 !important;
+}
+
+.wh-badge--action:active {
+    transform: scale(0.96) !important;
+}
+
+/* 图标默认不显示，只有 action 形态才露出来；尺寸跟随字号 */
+.wh-badge-icon {
+    display: none !important;
+    width: 1em !important;
+    height: 1em !important;
+    flex: none !important;
+    fill: currentColor !important;
+}
+
+.wh-badge--action .wh-badge-icon {
+    display: block !important;
+}
+
+.wh-badge-text {
+    display: inline !important;
+    white-space: nowrap !important;
+}
+
+/* 各站点主色：按钮像原站自己的次级操作，而不是外挂 */
+.wh-badge--site-x.wh-badge--action {
+    color: #536471 !important;
+}
+
+.wh-badge--site-x.wh-badge--action:hover {
+    color: #1d9bf0 !important;
+    background: rgba(29, 155, 240, 0.12) !important;
+}
+
+.wh-badge--site-xiaohongshu.wh-badge--action {
+    color: #ff2442 !important;
+}
+
+.wh-badge--site-xiaohongshu.wh-badge--action:hover {
+    color: #e01f3d !important;
+    background: rgba(255, 36, 66, 0.1) !important;
+}
+
+.wh-badge--site-hentaiclub.wh-badge--action {
+    color: #7a7a7a !important;
+}
+
+.wh-badge--site-hentaiclub.wh-badge--action:hover {
+    color: #ff5a3c !important;
+    background: rgba(255, 90, 60, 0.1) !important;
+}
+
+/* 卡片角标上的按钮要有个浅底，否则压在封面图上会看不清 */
+.wh-badge--corner.wh-badge--action {
+    background: rgba(255, 255, 255, 0.92) !important;
+    opacity: 0.92 !important;
+}
+
+/* 深色站的兜底：X 深色模式下白底卡片角标仍可读，无需额外处理；
+   这里只保证文字对比度，避免站点把 color 全局覆盖掉 */
+.wh-badge--action .wh-badge-icon,
+.wh-badge--action .wh-badge-text {
+    color: inherit !important;
+}
+
+/* ── 主页「打开列表」浮动按钮 ───────────────────────────── */
+
+/* 只在某个人的主页出现：点了把这个主页的整页帖子送进前端的列表模式。
+   站点主色 + 深底，和角标那种「轻量标注」区分开，因为它是个正经操作入口。 */
+.wh-list-button {
+    position: fixed !important;
+    right: 20px !important;
+    bottom: 20px !important;
+    z-index: 2147483000 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    height: 38px !important;
+    padding: 0 16px !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: #0f1419 !important;
+    color: #fff !important;
+    font-family: inherit !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24) !important;
+    transition: transform .15s ease, filter .15s ease !important;
+}
+
+.wh-list-button:hover {
+    transform: translateY(-1px) !important;
+    filter: brightness(1.08) !important;
+}
+
+.wh-list-button:active {
+    transform: scale(0.97) !important;
+}
+
+.wh-list-button .wh-badge-icon {
+    display: block !important;
+    width: 16px !important;
+    height: 16px !important;
+    fill: currentColor !important;
+}
+
+/* X 右下角的 Grok / 聊天抽屉会盖住固定按钮，具体位置由 JS 按抽屉实际矩形动态让开
+   （见 site-status.js 的 avoidBottomDock），这里只留基线 */
+.wh-list-button--site-x {
+    bottom: 20px !important;
+}
+
+.wh-list-button--site-xiaohongshu {
+    background: #ff2442 !important;
+}
+
+.wh-list-button--site-hentaiclub {
+    background: #ff5a3c !important;
+}
+
+.wh-list-button--site-weibo {
+    background: #eb7350 !important;
+}
+
+/* 站点自己有合适的位置时（hentaiclub 的 `.archive-title`），按钮直接嵌进去，
+   不再浮在右下角抢视线 */
+.wh-list-button--inline {
+    position: static !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 0 0 10px !important;
+    height: 28px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    vertical-align: middle !important;
+    box-shadow: none !important;
+}
+
+.wh-list-button--inline .wh-badge-icon {
+    width: 14px !important;
+    height: 14px !important;
+}
+
+/* hentaiclub 详情页右侧浮动按钮栏（#side-button ul）：新加的 li 里放我们的按钮。
+   宽高由 JS 照抄站点自己的 li，这里只保证内容居中、不留内边距 */
+.wh-side-item {
+    list-style: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.wh-side-item:empty {
+    display: none !important;
+}
+
+@media (max-width: 700px) {
+    .wh-list-button {
+        right: 12px !important;
+        bottom: 12px !important;
+        height: 34px !important;
+        padding: 0 12px !important;
+        font-size: 13px !important;
+    }
+
+    .wh-list-button--site-x {
+        bottom: 66px !important;
+    }
+}
+
+
+/* ── 图标形态（X / 小红书详情 / hentaiclub）：一个图标按钮，和站点原生图标并排 ── */
+
+/* 不写死 width：按钮宽度由图标 + 内边距决定，别再和站点图标行的布局抢位置 */
+.wh-badge--icon {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 6px !important;
+    margin: 0 2px 0 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    color: #536471 !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    transition: background-color .15s ease, color .15s ease !important;
+}
+
+.wh-badge--icon .wh-badge-icon {
+    display: block !important;
+    width: 20px !important;
+    height: 20px !important;
+}
+
+.wh-badge--icon .wh-badge-text {
+    display: none !important;
+}
+
+/* X 底部操作栏里的方形图标按钮：固定 38.5×38.5。
+   不能按旁边的「回复」按钮量宽高 —— 那个按钮的 rect 是「图标 + 计数文字」的整宽
+   （约 70px），量出来我们的图标会变成一条宽药丸，比旁边一圈都大 */
+.wh-badge--icon.wh-badge--site-x {
+    width: 38.5px !important;
+    min-width: 38.5px !important;
+    height: 38.5px !important;
+    min-height: 38.5px !important;
+    padding: 0 !important;
+    margin: 0 0 0 4px !important;
+    align-self: center !important;
+    flex: none !important;
+}
+
+.wh-badge--icon:hover {
+    background: rgba(29, 155, 240, .12) !important;
+}
+
+/* 有结论的角标不是按钮，别给点击反馈 */
+.wh-badge--icon[data-kind="status"] {
+    cursor: default !important;
+}
+
+.wh-badge--icon[data-kind="status"]:hover {
+    background: transparent !important;
+}
+
+/* 图标形态下，状态只靠颜色区分 */
+.wh-badge--icon.wh-badge--collected,
+.wh-badge--icon.wh-badge--done {
+    background: transparent !important;
+    color: #00ba7c !important;
+}
+
+.wh-badge--icon.wh-badge--archived {
+    background: transparent !important;
+    color: #536471 !important;
+}
+
+.wh-badge--icon.wh-badge--skipped {
+    background: transparent !important;
+    color: #71767b !important;
+}
+
+.wh-badge--icon.wh-badge--pending,
+.wh-badge--icon.wh-badge--downloading {
+    background: transparent !important;
+    color: #1d9bf0 !important;
+}
+
+.wh-badge--icon.wh-badge--failed {
+    background: transparent !important;
+    color: #f4212e !important;
+}
+
+/* 自动下载：hover 用 X 的 Grok 紫，和「下载」的蓝区分开 */
+.wh-badge--auto-badge:hover {
+    background: rgba(120, 86, 255, .14) !important;
+    color: #7856ff !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .wh-badge--icon.wh-badge--downloading .wh-badge-icon {
+        animation: wh-spin 0.9s linear infinite;
+    }
+
+    @keyframes wh-spin {
+        to { transform: rotate(360deg); }
+    }
+}
+
+/* ── 状态配色 ───────────────────────────────────────────── */
+
+.wh-badge--collected {
+    color: #0f7b3f !important;
+    background: #e8f8ee !important;
+    border-color: #b7e3c7 !important;
+}
+
+.wh-badge--downloading {
+    color: #185fa5 !important;
+    background: #e8f2ff !important;
+    border-color: #b9d4ff !important;
+}
+
+.wh-badge--pending {
+    color: #3b60c4 !important;
+    background: #eef2fb !important;
+    border-color: #c4d2ef !important;
+}
+
+.wh-badge--failed {
+    color: #c62828 !important;
+    background: #fdecec !important;
+    border-color: #f3bdbd !important;
+}
+
+.wh-badge--skipped {
+    color: #6b6b66 !important;
+    background: #f2f2f0 !important;
+    border-color: #d8d8d2 !important;
+}
+
+.wh-badge--archived {
+    color: #55554f !important;
+    background: #f4f4f2 !important;
+    border-color: #dcdcd6 !important;
+}
+
+.wh-badge--done {
+    color: #0f7b3f !important;
+    background: #e8f8ee !important;
+    border-color: #b7e3c7 !important;
+}
+
+/* 下载中的呼吸效果：只动 opacity，避免触发重排 */
+@media (prefers-reduced-motion: no-preference) {
+    .wh-badge--downloading {
+        animation: wh-badge-pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes wh-badge-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.62; }
+    }
+}
+
+/* ── 各站点图标按钮的主色（只作用于「未下载」这个可点状态） ───────── */
+
+/* 小红书详情页的「更多」只有 16px，按钮跟着收一档，别把底部信息行撑高 */
+.wh-badge--icon.wh-badge--site-xiaohongshu {
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 4px !important;
+    /* 跟在日期右边：间距放在左侧，垂直跟文字居中对齐 */
+    margin: 0 0 0 8px !important;
+    vertical-align: middle !important;
+}
+
+.wh-badge--icon.wh-badge--site-xiaohongshu .wh-badge-icon {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* 小红书详情页：跟在日期后面，日常是页面文字灰，hover 才亮成品牌红 */
+.wh-badge--icon.wh-badge--site-xiaohongshu.wh-badge--action {
+    color: #7b8a99 !important;
+}
+
+.wh-badge--icon.wh-badge--site-xiaohongshu.wh-badge--action:hover {
+    background: rgba(255, 36, 66, .08) !important;
+    color: #ff2442 !important;
+}
+
+/* hentaiclub 的信息行很矮（[28P] 只有 12px 字），图标跟着收小，否则会把卡片撑高 */
+.wh-badge--icon.wh-badge--site-hentaiclub {
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 4px !important;
+    /* 列表卡的封面图是绝对定位的，不给层级会被盖住（DOM 里有、肉眼看不到） */
+    position: relative !important;
+    z-index: 20 !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub .wh-badge-icon {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* 挂在 [34P] 这个 span 内部最前面：间距要出现在按钮右边，不是左边 */
+.wh-badge--site-hentaiclub {
+    margin: 0 4px 0 0 !important;
+}
+
+/* hentaiclub 侧边栏：和旁边的 li 同一档灰，hover 用站点橙 */
+.wh-badge--icon.wh-badge--site-hentaiclub.wh-badge--action {
+    color: #7a7a7a !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub.wh-badge--action:hover {
+    background: rgba(255, 90, 60, .12) !important;
+    color: #ff5a3c !important;
+}
+
+/* ── hentaiclub 的两种挂载形态 ───────────────────────────── */
+
+/* 列表页：摆在「[140P] 🖼」的图片图标右边，底色恒为 transparent ——
+   hover / focus / active 都不改背景，只让图标变色。
+   padding 为 0，按钮就是图标本身那么大，不加内边距。 */
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"],
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"]:hover,
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"]:focus,
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"]:active {
+    height: 22px !important;
+    min-height: 22px !important;
+    padding: 0 !important;
+    margin: 0 0 0 4px !important;
+    border: 1px solid transparent !important;
+    border-radius: 6px !important;
+    background-color: transparent !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"] {
+    color: #fff !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="num"]:hover {
+    color: #ff5a3c !important;
+}
+
+/* 详情页：浅灰底（whitesmoke），和侧边栏那排按钮同一档；
+   hover 同样不改背景，只换图标颜色 */
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"],
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"]:hover,
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"]:focus,
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"]:active {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background-color: whitesmoke !important;
+    filter: none !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"] {
+    color: #7a7a7a !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"]:hover {
+    color: #ff5a3c !important;
+}
+
+.wh-badge--icon.wh-badge--site-hentaiclub[data-wh-slot="side"] .wh-badge-icon {
+    width: 22px !important;
+    height: 22px !important;
+}
+
+/* ── 微博 ───────────────────────────────────────────────── */
+
+/* 来源行（「2小时前 来自 iPhone」）字很小，图标跟着收一档，别把那一行撑高 */
+.wh-badge--icon.wh-badge--site-weibo {
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 4px !important;
+    margin: 0 0 0 6px !important;
+}
+
+.wh-badge--icon.wh-badge--site-weibo .wh-badge-icon {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.wh-badge--icon.wh-badge--site-weibo.wh-badge--action {
+    color: #8a8f99 !important;
+}
+
+.wh-badge--icon.wh-badge--site-weibo.wh-badge--action:hover {
+    background: rgba(235, 115, 80, .12) !important;
+    color: #eb7350 !important;
+}

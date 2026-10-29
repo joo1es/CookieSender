@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "虫洞",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "连接浏览器与本地开发环境",
     "author": "jooies",
     "icons": {
@@ -27,7 +27,8 @@
         "webNavigation",
         "scripting",
         "activeTab",
-        "tabs"
+        "tabs",
+        "storage"
     ],
     "content_scripts": [
         {
@@ -48,6 +49,24 @@
             ],
             "js": [
                 "bridge.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://*.x.com/*",
+                "*://*.twitter.com/*",
+                "*://*.xiaohongshu.com/*",
+                "*://*.hentaiclub.net/*",
+                "*://*.hentaiclub.com/*",
+                "*://*.weibo.com/*",
+                "*://*.weibo.cn/*"
+            ],
+            "js": [
+                "site-status.js"
+            ],
+            "css": [
+                "site-status.css"
             ],
             "run_at": "document_idle"
         }
