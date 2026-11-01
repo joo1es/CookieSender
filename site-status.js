@@ -156,6 +156,32 @@
                 if (!matched) return null
                 if (RESERVED_X_PATHS.has(matched[1].toLowerCase())) return null
                 return `${location.origin}/${matched[1]}${matched[2] ? '/' + matched[2] : ''}`
+            },
+            /**
+             * 这条帖子的作者 handle。
+             *
+             * 为什么要在页面里取：自动下载只把推文 id 交出去（`/i/status/<id>`），
+             * 后端要拿账号只能反查一次推文接口 —— 而 DOM 里「显示名」那一块的结构里
+             * 作者主页链接本来就是现成的，取一下比发请求快几个数量级，也不受反爬影响。
+             *
+             * 只在 `[data-testid="User-Name"]` 里找，不扫整篇文章：转推 / 引用会带进
+             * 被引用者的名字，扫全文可能把别人的 handle 挂到这条帖子上。
+             */
+            authorOf(anchor) {
+                const article = anchor?.closest('article')
+                if (!article) return ''
+                const scope = article.querySelector('[data-testid="User-Name"]') || article
+                for (const link of scope.querySelectorAll('a[href]')) {
+                    const href = link.getAttribute('href') || ''
+                    // /handle、/handle/、/handle?x=1 都是主页链接；/handle/status/1 也算，
+                    // 但它不会是这一块里的第一个链接（显示名和 @handle 排在前面）
+                    const matched = href.match(/^\/([A-Za-z0-9_]{1,15})(?:[/?#]|$)/)
+                    if (!matched) continue
+                    const handle = matched[1]
+                    if (RESERVED_X_PATHS.has(handle.toLowerCase())) continue
+                    return handle
+                }
+                return ''
             }
         },
         {
@@ -184,6 +210,24 @@
                 const matched = location.pathname.match(/^\/(?:explore|discovery\/item)\/([0-9a-f]{24})/i)
                 if (!matched) return null
                 return `https://www.xiaohongshu.com/explore/${matched[1]}`
+            },
+            /**
+             * 笔记作者的 uid。
+             *
+             * 笔记链接 `/explore/<noteId>` 里没有作者（后端也只按 noteId 入库），
+             * 想默认匹配图库只能从页面上取：作者区是 `.author-wrapper`，里面的头像和昵称
+             * 都是 `/user/profile/<uid>` 链接。订阅源 url 存的正是这个 uid，能直接对上。
+             *
+             * 不能全页扫 `a[href*="/user/profile/"]`：评论区、推荐位都有一堆，
+             * 页面先渲染到谁就命中谁。所以限定在作者区，取不到才退到整页第一个。
+             */
+            authorOf() {
+                const scope = document.querySelector('.author-wrapper') ||
+                    document.querySelector('.note-content') ||
+                    document
+                const matched = (scope.querySelector('a[href*="/user/profile/"]')?.getAttribute('href') || '')
+                    .match(/\/user\/profile\/([0-9a-zA-Z]+)/)
+                return matched ? matched[1] : ''
             },
             /**
              * 挂在日期（「6小时前 上海」）右边。
@@ -564,7 +608,8 @@
             // 后端没有登录态，抓不到详情页；源码只在这条消息里走，不落盘。
             const source = site.wantsSource ? document.documentElement.outerHTML : ''
             if (DEBUG) dbg('源码', href, source.length)
-            await sendMessage({ topic: 'openDetailPage', href, source })
+            // user：这条帖子的作者（站点账号），选人面板据此默认匹配图库
+            await sendMessage({ topic: 'openDetailPage', href, source, user: accountOf(badge, href) })
         } catch {
             if (textEl) textEl.textContent = '打开失败'
             setTimeout(() => {
@@ -746,12 +791,14 @@
     const AUTO_ICON = '<svg class="wh-badge-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
         '<path d="M13.5 2 5 13h5l-1.5 9L18.5 11h-5z"/></svg>'
 
-    function createAutoBadge(href) {
+    function createAutoBadge(href, author) {
         const el = document.createElement('span')
         el.className = `wh-badge wh-badge--icon wh-badge--auto-badge wh-badge--site-${site.name}`
         el.setAttribute('data-wh-badge', '1')
         el.dataset.whAuto = '1'
         el.dataset.href = href
+        // 作者 handle 随按钮一起带着：前端选人面板据此默认匹配图库
+        el.dataset.whUser = author || ''
         el.setAttribute('role', 'button')
         el.setAttribute('tabindex', '0')
         el.title = '自动下载到所选图库（不打开详情）'
@@ -781,7 +828,7 @@
         button.dataset.busy = '1'
         button.title = '已交给前端…'
         try {
-            await sendMessage({ topic: 'openAutoPage', href })
+            await sendMessage({ topic: 'openAutoPage', href, user: button.dataset.whUser || '' })
         } catch {
             button.title = '打开失败，稍后再试'
         } finally {
@@ -814,8 +861,33 @@
         }
         if (el) return
 
-        el = createAutoBadge(href)
+        el = createAutoBadge(href, accountOf(anchor, href))
         if (mount(anchor, el)) autoBadges.set(href, el)
+    }
+
+    /**
+     * 帖子作者（站点账号）：优先问站点自己的 DOM 取法，取不到就从链接里退一步。
+     *
+     * 微博这类链接本身就带账号（`weibo.com/u/<uid>`、`weibo.com/<uid>/<bid>`），
+     * 而订阅源 url 里存的也正是这个 uid，所以兜底足够用。
+     */
+    function accountOf(anchor, href) {
+        const fromDom = site.authorOf ? site.authorOf(anchor) : ''
+        if (fromDom) return fromDom
+        try {
+            const pathname = new URL(href).pathname
+            const parts = pathname.split('/').filter(Boolean)
+            if (site.name === 'weibo') {
+                if (parts[0] === 'u' && parts[1]) return parts[1]
+                if (/^\d+$/.test(parts[0] || '')) return parts[0]
+            }
+            // 主页链接里直接带 uid（小红书 /user/profile/<uid>、其它站同理）
+            const profile = pathname.match(/\/user\/profile\/([0-9a-zA-Z]+)/)
+            if (profile?.[1]) return profile[1]
+        } catch {
+            // 链接解析失败就是拿不到账号，前端退回「上次选择」
+        }
+        return ''
     }
 
     /* ------------------------------------------------------------------ */
@@ -836,6 +908,29 @@
         return el
     }
 
+    /**
+     * 列表页面对应的账号：X 是 handle，小红书是首页 uid。
+     *
+     * 这两个站的列表 URL 本身就带着账号，直接取出来交给前端选人面板，
+     * 面板就能默认匹配到这个人的图库（和单条「自动下载」同一个入口）。
+     */
+    function listAccountOf(url) {
+        try {
+            const path = new URL(url).pathname
+            if (site.name === 'x') {
+                const matched = path.match(/^\/([A-Za-z0-9_]{1,15})(?:\/|$)/)
+                if (matched && !RESERVED_X_PATHS.has(matched[1].toLowerCase())) return matched[1]
+            }
+            if (site.name === 'xiaohongshu') {
+                const matched = path.match(/^\/user\/profile\/([^/?#]+)/)
+                if (matched?.[1]) return decodeURIComponent(matched[1])
+            }
+        } catch {
+            // URL 解析失败就是没有账号，前端退回「上次选择」
+        }
+        return ''
+    }
+
     async function onListButtonClick(event) {
         event.preventDefault()
         event.stopPropagation()
@@ -850,7 +945,7 @@
             // 小红书只能靠页面源码解析（后端没有登录态，抓不到这个页面），
             // 就地取一份带过去；其它站点交给后端自己抓，别把一大坨 HTML 塞进消息通道
             const source = site.wantsSource ? document.documentElement.outerHTML : ''
-            await sendMessage({ topic: 'openListPage', href: url, source })
+            await sendMessage({ topic: 'openListPage', href: url, source, user: listAccountOf(url) })
             setListButtonText(button, '已发送')
         } catch {
             setListButtonText(button, '打开失败')

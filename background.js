@@ -68,7 +68,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // source：小红书这类只能靠页面源码解析的站点，会把整页 HTML 一起传过来
     if (msg.topic === 'openDetailPage') {
         console.log('[虫洞] openDetailPage', msg.href, 'source 长度:', (msg.source || '').length);
-        openDetailPage(msg.href, msg.source)
+        openDetailPage(msg.href, msg.source, msg.user)
             .then(sendResponse)
             .catch(e => sendResponse({ success: false, error: e.message }));
         return true;
@@ -88,15 +88,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // 用户主页上的「打开列表」按钮：把整页帖子送进前端的 browser 列表模式
     // 小红书必须带页面源码才能解析，所以 source 由内容脚本在点击时上传
     if (msg.topic === 'openListPage') {
-        openListPage(msg.href, msg.source)
+        openListPage(msg.href, msg.source, msg.user)
             .then(sendResponse)
             .catch(e => sendResponse({ success: false, error: e.message }));
         return true;
     }
 
     // 「自动下载」按钮：前端选完人后直接入队，不打开详情
+    // user 是这条帖子的作者（站点账号），前端选人面板据此默认匹配图库
     if (msg.topic === 'openAutoPage') {
-        openAutoPage(msg.href)
+        openAutoPage(msg.href, msg.user)
             .then(sendResponse)
             .catch(e => sendResponse({ success: false, error: e.message }));
         return true;
@@ -448,14 +449,24 @@ async function checkStatuses(hrefs) {
 //   1) 已经开着前端：注入一个函数调用，页面内打开，不刷新（保留用户当前的浏览状态）
 //   2) 没开着：带 ?browserDetail= / ?browserList= 新开一个标签，前端启动时自己弹出来
 const FRONTEND_HOME = 'https://kan.tu/';
-const FRONTEND_PATTERN = /^https?:\/\/(kan\.tu|localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i;
+/** 正式入口：换电脑、换网络都只有这一条路（后端 3000 由域名反代） */
+const FRONTEND_PATTERN = /^https?:\/\/(kan\.tu)(:\d+)?(\/|$)/i;
+/**
+ * 本机开发页（vite 跑在 localhost:5000）。
+ *
+ * 只当「能注入就用」的备选，**绝不**把它导航去深链：别的电脑上随便一个本地服务
+ * 都长这样，按正式前端处理会把人正在用的页面抢走。
+ */
+const LOCAL_DEV_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i;
 
 /** kind: 'detail' | 'list' | 'auto' */
 const FRONTEND_KEY = { detail: 'browserDetail', list: 'browserList', auto: 'browserAuto' };
 
-function buildFrontendUrl(kind, href) {
+function buildFrontendUrl(kind, href, user) {
     const key = FRONTEND_KEY[kind] || FRONTEND_KEY.detail;
-    return `${FRONTEND_HOME}?${key}=${encodeURIComponent(href)}`;
+    // user：这条帖子的作者（站点账号），前端选人面板拿它默认匹配图库
+    const extra = user ? `&browserUser=${encodeURIComponent(user)}` : '';
+    return `${FRONTEND_HOME}?${key}=${encodeURIComponent(href)}${extra}`;
 }
 
 /* 前端没开着时，源码没法塞进深链（几 MB 的 HTML），
@@ -508,58 +519,66 @@ async function takeSource(href) {
     return source;
 }
 
-async function openFrontend(kind, href, source) {
+async function openFrontend(kind, href, source, user) {
     const target = (href || '').trim();
     if (!target) throw new Error('缺少链接');
 
     const tabs = await chrome.tabs.query({});
-    const existing = tabs.find(tab => tab.id != null && tab.url && FRONTEND_PATTERN.test(tab.url));
+    // 正式入口优先；没有才退到本机开发页（且只尝试注入，不做任何跳转）
+    const canonical = tabs.find(tab => tab.id != null && tab.url && FRONTEND_PATTERN.test(tab.url));
+    const fallback = canonical ? null : tabs.find(tab => tab.id != null && tab.url && LOCAL_DEV_PATTERN.test(tab.url));
+    const existing = canonical || fallback;
 
     if (existing) {
-        const opened = await dispatchToFrontend(existing.id, kind, target, source);
+        const opened = await dispatchToFrontend(existing.id, kind, target, source, user);
         if (opened) {
             await focusTab(existing.id, existing.windowId);
             return { success: true, mode: 'inpage' };
         }
-        // 前端还在加载 / 版本太旧没有这个入口 → 退化成深链跳转，源码先存着
-        await stashSource(target, source);
-        await chrome.tabs.update(existing.id, { url: buildFrontendUrl(kind, target), active: true });
-        await focusTab(existing.id, existing.windowId);
-        return { success: true, mode: 'navigate' };
+        if (canonical) {
+            // 正式入口但还没加载好 / 版本太旧没有这个入口 → 退化成深链跳转，源码先存着
+            await stashSource(target, source);
+            await chrome.tabs.update(canonical.id, { url: buildFrontendUrl(kind, target, user), active: true });
+            await focusTab(canonical.id, canonical.windowId);
+            return { success: true, mode: 'navigate' };
+        }
+        // 本机开发页注不进去就放过它，另开一个正式标签
     }
 
     await stashSource(target, source);
-    await chrome.tabs.create({ url: buildFrontendUrl(kind, target), active: true });
+    await chrome.tabs.create({ url: buildFrontendUrl(kind, target, user), active: true });
     return { success: true, mode: 'created' };
 }
 
-function openDetailPage(href, source) {
-    return openFrontend('detail', href, source);
+function openDetailPage(href, source, user) {
+    return openFrontend('detail', href, source, user);
 }
 
-function openListPage(href, source) {
-    return openFrontend('list', href, source);
+function openListPage(href, source, user) {
+    return openFrontend('list', href, source, user);
 }
 
-function openAutoPage(href) {
-    return openFrontend('auto', href);
+function openAutoPage(href, user) {
+    return openFrontend('auto', href, '', user);
 }
 
 /** 在前端页面的主世界里调用它挂上来的入口函数；页面没准备好时返回 false */
-async function dispatchToFrontend(tabId, kind, href, source) {
+async function dispatchToFrontend(tabId, kind, href, source, user) {
     try {
         const results = await chrome.scripting.executeScript({
             target: { tabId },
             world: 'MAIN',
-            func: (k, url, src) => {
+            func: (k, url, src, who) => {
                 const fn = k === 'list'
                     ? window.__openBrowserList
                     : (k === 'auto' ? window.__openBrowserAuto : window.__openBrowserDetail);
                 if (typeof fn !== 'function') return false;
-                fn(url, src);
+                // auto 入口没有 source（它不打开详情），签名是 (url, user) —— 别把空串当账号塞进去
+                if (k === 'auto') fn(url, who);
+                else fn(url, src, who);
                 return true;
             },
-            args: [kind, href, source || '']
+            args: [kind, href, source || '', user || '']
         });
         return results?.[0]?.result === true;
     } catch {

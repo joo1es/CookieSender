@@ -56,18 +56,31 @@ A cookie sending plug-in base on chrome manifest v3.
 | ⚡ 闪电 | 选人 → **直接入队自动下载**（`/get/queue/enqueue`），不打开详情 |
 | ⬇ 下载箭头 | 选人 → 打开 browser 详情，人工确认后再推 |
 
+两个按钮都会把**帖子作者**一起交出去（`user`），选人面板据此默认匹配图库。
+必须由扩展取：帖子永久链接归一化后是 `x.com/i/status/{id}`，里面没有作者，
+DOM 的 `[data-testid="User-Name"]` 里才有 —— 页面里取一下，比让后端反查推文接口快得多。
+
 优先级：已收录 > 下载中 > 排队中 > 失败 > 跳过 > 已下载过 > 未下载（显示下载按钮）。
 
 「下载」按钮点了会跳到前端，**先弹选人面板确认目标图库**，确认后才进 browser 详情：
 
-- 已经开着 kan.tu：注入 `window.__openBrowserDetail(url)` 在页面内打开，不刷新；
-- 没开着：新标签打开 `https://kan.tu/?browserDetail=<帖子链接>`，前端启动时自己弹出，
-  并把参数从地址栏抹掉（前端 `components/Browser/Index.vue` + `router/index.ts` 的根路径 redirect）。
+- 已经开着 kan.tu：注入 `window.__openBrowserDetail(url, source, user)` 在页面内打开，不刷新；
+- 没开着：新标签打开 `https://kan.tu/?browserDetail=<帖子链接>&browserUser=<作者>`，
+  前端启动时自己弹出，并把参数从地址栏抹掉（前端 `components/Browser/Index.vue` +
+  `router/index.ts` 的根路径 redirect）。
+
+「已经开着」只认 **kan.tu**：`localhost` / `127.0.0.1` 只当本机开发页（vite 在 5000）
+的可注入备选，注不进去就另开新标签，绝不把它导航去深链 —— 否则别的电脑上随便一个本地服务
+都会被当成前端抢走。换机器、换网络都只有 `https://kan.tu/` 这一条路。
 
 选人面板（`components/Browser/Components/TargetPicker.vue`）直接复用站内已有的 `o-user-select`
 （搜索 / 拼音 / 虚拟列表 / 勾选态都是它的），这里只提供候选数据、标题和「中转站」入口。
-候选来自 `/api/gallery/users`，上次选过的图库排第一位（并由 `modelValue` 高亮）。选中后写进
-store 的 `browser.targetGallery`，详情推送就用它，关掉弹层即清空。
+候选来自 `/api/gallery/users`，选中后写进 store 的 `browser.targetGallery`，详情推送就用它，
+关掉弹层即清空。
+
+**默认匹配**：面板拿 `user` 问一次 `POST /api/gallery/resolve`（后端按订阅源 url ↔ folder、
+图库 username / folder / title / 别名 / 关键词逐级匹配），命中的置顶高亮，顶部还会列几个
+候选供一键切换；没命中就退回原来的「上次选过的排第一」。
 
 ### 用户主页的「打开列表」
 
@@ -79,7 +92,8 @@ store 的 `browser.targetGallery`，详情推送就用它，关掉弹层即清�
 - 小红书这条路会就地取当前页源码一起传过去 —— 后端没有登录态，抓不到该页面；
 - X 的按钮会**按右下角 Grok / 聊天抽屉的实际位置动态上移**（`avoidBottomDock` 读 `#layers`
   里那两个底部抽屉的矩形，抽屉收起就自动回落），不再写死 px，避免压住 Grok 按钮；
-- 前端入口：`window.__openBrowserList(url, source)`，深链是 `?browserList=<主页链接>`。
+- 前端入口：`window.__openBrowserList(url, source, user)`，深链是
+  `?browserList=<主页链接>&browserUser=<账号>`（X 取 handle，小红书取 uid，同样用于默认匹配）。
 
 ### 调试
 
